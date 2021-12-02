@@ -49,7 +49,7 @@ install.packages("rmakdown", repos = "http://cran.us.r-project.org")
 suppressPackageStartupMessages(library(rmarkdown))
 ```
 
-#### 👉 Go to the following GitHub repo to download the material: <https://github.com/TanjaKec/RMd_Intro>
+#### 👉 Go to the following GitHub repo to download the material: <https://github.com/TanjaKec/RMd_Into>
 
 ### Starting with RMarkdown
 
