@@ -97,6 +97,244 @@ is.factor(x)
 ## [1] FALSE
 ```
 
+### Lists
+
+Lists are the R objects which contain elements of different types: numbers, strings, vectors and another list inside it. A list can also contain a matrix or a function as its elements. List is created using `list()` function.
+
+In the following example a, b and c are called tags which makes it easier to reference the components of the list.
+
+
+```r
+l <- list("a" = c("Jana", "Stana"), "b" = TRUE, "c" = 4:9, "d" = 100)
+l
+```
+
+```
+## $a
+## [1] "Jana"  "Stana"
+## 
+## $b
+## [1] TRUE
+## 
+## $c
+## [1] 4 5 6 7 8 9
+## 
+## $d
+## [1] 100
+```
+
+A List can be accessed in similar fashion to a vector. You can use `$` operator, alternatively you can use `[ ]` brackets. Indexing with `[` as shown below will give you a sub-list not the content inside the component. To retrieve the content, you need to use `[[`. However, this approach will allow you to access only a single component at a time. Note that both approaches are the same except that `$` can do partial matching on tags.
+
+
+```r
+str(l)
+```
+
+```
+## List of 4
+##  $ a: chr [1:2] "Jana" "Stana"
+##  $ b: logi TRUE
+##  $ c: int [1:6] 4 5 6 7 8 9
+##  $ d: num 100
+```
+
+```r
+l$a[2]
+```
+
+```
+## [1] "Stana"
+```
+
+```r
+l[[1]][2]
+```
+
+```
+## [1] "Stana"
+```
+
+```r
+l$c[2]
+```
+
+```
+## [1] 5
+```
+
+```r
+l[[3]][2]
+```
+
+```
+## [1] 5
+```
+
+Remember that Indexing with `[` as shown above will give you a sub-list, not the content inside the component. To retrieve the content, you need to use `[[`.
+
+
+```r
+l["a"]  # single [ returns a list
+```
+
+```
+## $a
+## [1] "Jana"  "Stana"
+```
+
+```r
+l[["a"]]  # double [[ returns the content
+```
+
+```
+## [1] "Jana"  "Stana"
+```
+
+```r
+l[4]
+```
+
+```
+## $d
+## [1] 100
+```
+
+```r
+l[[4]]
+```
+
+```
+## [1] 100
+```
+
+- indexing can be done recursively
+
+
+```r
+l$a[2]
+```
+
+```
+## [1] "Stana"
+```
+
+```r
+l[["a"]][2]
+```
+
+```
+## [1] "Stana"
+```
+
+- no tags: use numeric indices
+
+
+```r
+k <- list(c("Jana", "Stana"), TRUE, 4:9)
+str(k)
+```
+
+```
+## List of 3
+##  $ : chr [1:2] "Jana" "Stana"
+##  $ : logi TRUE
+##  $ : int [1:6] 4 5 6 7 8 9
+```
+
+```r
+k[[1]][2]
+```
+
+```
+## [1] "Stana"
+```
+
+```r
+k[[3]][2]
+```
+
+```
+## [1] 5
+```
+
+```r
+l[["a"]] <- "name"
+l
+```
+
+```
+## $a
+## [1] "name"
+## 
+## $b
+## [1] TRUE
+## 
+## $c
+## [1] 4 5 6 7 8 9
+## 
+## $d
+## [1] 100
+```
+
+You can delete a component from a list by assigning `NULL` to it.
+
+
+```r
+str(l)
+```
+
+```
+## List of 4
+##  $ a: chr "name"
+##  $ b: logi TRUE
+##  $ c: int [1:6] 4 5 6 7 8 9
+##  $ d: num 100
+```
+
+```r
+l[["d"]] <- NULL
+
+str(l)
+```
+
+```
+## List of 3
+##  $ a: chr "name"
+##  $ b: logi TRUE
+##  $ c: int [1:6] 4 5 6 7 8 9
+```
+
+Adding the new components is easy.
+
+
+```r
+l[["new_d"]] <- 101
+str(l)
+```
+
+```
+## List of 4
+##  $ a    : chr "name"
+##  $ b    : logi TRUE
+##  $ c    : int [1:6] 4 5 6 7 8 9
+##  $ new_d: num 101
+```
+
+To make changes to a list you simply replace the specific elements, as shown 
+
+```r
+l[["c"]][3:6] <- 106:109  
+str(l)
+```
+
+```
+## List of 4
+##  $ a    : chr "name"
+##  $ b    : logi TRUE
+##  $ c    : int [1:6] 4 5 106 107 108 109
+##  $ new_d: num 101
+```
+
 ### Data Frames
 
 Statistical data usually consists of several vectors of equal length and of various types that resemble a table. These vectors are interconnected across so that data in the same position comes from the same experimental unit, ie. observation. R uses data frame for storing this kind of data table and it is regarded as a primary data structure.
@@ -147,8 +385,9 @@ Individual vectors from the data frame can be accessed using `$` symbol:
 share.data$sector
 ```
 
-Now, as we have mastered the basics let us learn how to access existing data from R.
+When working in R you will also come across a [tibble](https://tibble.tidyverse.org). A tibble (`tbl_df`) is a data frame providing a nicer printing method, useful when working with large data sets. One of the main differences is that a tibble can have columns that are lists.
 
+Now, as we have mastered the basics let us learn how to access existing data from R.
 
 -----------------------------
 © 2021 Tatjana Kecojevic
