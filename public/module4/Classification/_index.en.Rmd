@@ -1,0 +1,938 @@
+---
+date: "2016-04-09T16:50:16+02:00"
+title: Classification
+output: 
+  learnr::tutorial
+weight: 5
+---
+
+```{r, message = FALSE, warning = FALSE, echo = FALSE}
+require(knitr)
+opts_chunk$set(eval = T)
+```
+
+
+Classification is a form of supervised learning focused on building and evaluating models for qualitative response, which we often refer to as categorical response. For example, is someone a smoker is a qualitative variable taking values _yes_ and _no_. Another example would be _European Country_, which is a qualitative variable taking qualitative values: Italy, France, Spain, Great Britain, Germany, Serbia,... Here, we will study approaches for predicting qualitative responses, a **process** that is known as **classification**. 
+
+Predicting a qualitative response for an observation can be referred to as classifying that observation, since it assigns to a category, or class. Classification methods tend to predict the probability of each of the categories of a qualitative variable as a basis for generating the classification. In this sense they also behave like regression methods. Although many of the regression
+modelling techniques can be used for classification, the way we evaluate
+model performance is, needless to say, different since MSE and $R^2$ are not appropriate in the context of classification.           
+
+Classification problems occur often, perhaps even more so than regression problems. Classification methods have wide practical applications. In environmental studies they are used to assess flood susceptibility. They are a popular financial tool for the assessment of bankruptcy prediction. In medical studies, breast cancer is often classified according to the number of oestrogen receptors present on the tumour. These are just a few of many examples where classification methods are used to perform the prediction.   
+
+There are many **classification methods**, also known as **classifiers**, that can be used to predict a qualitative response. We will familiarise ourself with the two most widely-used classifiers: K-nearest neighbours and logistic regression.
+
+<p><font color="black" face="Verdana, Geneva, sans-serif" size="+1.5">**K-nearest neighbours**</font></p>
+
+K-nearest neighbours (KNN) algorithm is one of the simplest techniques used in machine learning. Because of its simplicity and low calculation time KNN is a popular classification method preferred by many. It is a simple recommendation system used by [Amazon](https://www.amazon.co.uk/) and [Netflix](https://www.netflix.com/) (see [Use of KNN for the Netflix Prize](http://cs229.stanford.edu/proj2006/HongTsamis-KNNForNetflix.pdf)). It is a non-parametric method meaning that the model is made up entirely from the data given to it, instead of being based on the assumptions about the structure of the given data. In other words the KNN approach makes no assumptions about the shape of the decision boundary. 
+
+When implementing KNN, the first step is to transform data points into feature vectors, or their mathematical value. The algorithm then works by finding the distance between the mathematical values of these points. The most common way to find this distance is the Euclidean distance
+
+
+$$
+\begin{equation} 
+\begin{split}
+d(p, q) & = d(q, p) \\
+& & =  \sqrt{(p_1 - q_1)^2 + (p_2 - q_2)^2 + \dotsc + (p_n - q_n)^2} \\ 
+& &= \sqrt{\sum_{i=1}^{n}(p_i-q_i)^2}
+\end{split}
+\end{equation}
+$$
+where 
+
+- $p$ and $q$ are	two points in Euclidean $n$-space and
+- $q_i$ and $p_i$	are	Euclidean vectors, starting from the origin of the space (initial point).
+
+This can be illustrated as
+
+![](images/euclidian_distance.png?width=20pc)
+
+The figure below provides an illustrative example of the KNN approach. It consists of a small training data set of twelve red dots and twelve green squares. The goal is to make a prediction for the point labelled by the yellow star. For the choice of $K=3$ the KNN will identify the three observations that are closest to the yellow star. These neighbour observations are shaded in the circle around the yellow star. It consists of two red points and one green square, resulting in estimated probabilities of 2/3 for the red circle class and 1/3 for the green square class. As a result KNN will predict that the yellow star belongs to the red circle class.
+
+![](images/KNN.png?width=30pc)
+
+Let us assume we are dealing with a problem of classification of animals into two categories: dogs or cats. Classification needs to be conducted in respect of the two measurements: 
+
+- Measurement **A**: The length of the animal (in cm) from the tip of its nose to the back of its body, excluding the tail
+- Measurement **B**: The height of the animal's leg from floor to shoulder (in cm)
+
+We have a test data with the length and height measurements of several dogs and cats. For a new set of observed measurements we need to be able to determine if they belong to a dog or a cat. That is, the unknown animal needs to be classified into one of the two groups based on the given measurements. To do this we create a 2D plane like the one above. Next, we follow the same procedure of calculating the distance of the new object from the older ones, and the closer it is to either one of the categories will determine its own category. 
+
+```{r}
+animal <- as.factor(c("cat", "dog", "cat", "cat", "dog", "dog", "dog", "cat", "cat", "dog", "cat", "dog", "unknown"))
+A <- c(40, 34, 43, 37, 30, 39, 40, 43, 42, 37, 41, 35, 39)
+B <- c(24, 20, 23, 21, 26, 30, 39, 25, 27, 35, 18, 28, 20)
+
+animals_data <- data.frame(animal, A, B)
+
+library(ggplot2)
+ggplot(animals_data, aes(x = A, y = B)) +
+  geom_point(aes(col = animal), shape = 20, size = 3) +
+  geom_point(x = 39, y = 20, shape = 13, size = 7) +
+  labs (title= "Cats & Dogs",
+        x = "length", y = "height") +
+  theme_minimal() +
+  theme(legend.position = "bottom", 
+        panel.border = element_rect(fill = NA, 
+                                    colour = "black",
+                                    size = .75),
+        plot.title=element_text(hjust=0.5)) +
+  scale_colour_brewer(palette = "Set1") 
+```
+
+We can see that the new animal with 20cm of height and 39cm of length is in proximity with cats more than dogs. Hence, we predict that the new animal is a cat. However, in most cases we will deal with situations in which categories will be defined by many more attributes that will prevent us from simply drawing them on a scatter diagram like we did in this example.
+
+The more arguments describing the categories we have greater chance of appropriate prediction there is. For example if we get two more measurements to consider:
+
+- Measurement **C**: The width of the animal (in cm) across the shoulders, or the widest part of the animal if not the shoulders
+- Measurement **D**: The height of the animal (in cm) from the ground to the top of its head, including the ears if they are erect
+
+we simply use the above stated Euclidean formula to calculate the distance of the new upcoming animal from the already given animals. We take the square root of 
+
+$$\sqrt{(A_1-A_2)^2 + (B_1-B_2)^2 + (C_1-C_2)^2 + (D_1-D_2)^2}$$
+
+where 1 is representing the already drawn data point and 2 is representing the new data point that you want to determine the category of. This calculation shown above will be used with every data point available. That is, it will run as many times as there are rows in your dataset.
+
+<p><font color="black" face="Verdana, Geneva, sans-serif" size="+1.5">**KNN summary**</font></p>
+
+When running the KNN algorithm we first need to define the value $K$. If $K$ is 3 it will check the 3 closest neighbours in order to determine the category. If the majority of neighbours belong to a certain category from within those three nearest neighbours, then that will be chosen as the category of the upcoming object. 
+
+As different variables have different scaling units, like weight in kg and height in cm, they need to be normalised prior to their use in the calculation of their distance:
+
+$$\text{standardised } x =\frac{(x-min(x))}{(min(x) — max(x))}$$
+This will convert the values onto a scale 0 to 1. 
+
+Note that this can be done with numerical variables, which is not to say that KNN cannot deal with categorical variables too. There is much more than just Euclidean distance that can be used in the KNN algorithm. There are various theoretical measures which may be much more appropriate in those cases: Jaccard similarity, Tanimoto coefficient, Sørensen–Dice coefficient and so on. 
+
+In a nutshell, when running the KNN algorithm, data should be normalised prior to splitting it into training and testing sets. KNN runs a formula to compute the distance between each data point and the test data. It then finds the probability of these points being similar to the test data and classifies it based on which points share the highest probabilities.
+
+<p><font color="black" face="Verdana, Geneva, sans-serif" size="+1.5">**Example in R**</font></p>
+
+When calculating distances between data points in the KNN algorithm, we must use numeric predictor variables only. However, the outcome variable for KNN classification should remain a factor variable.
+
+In the following examples we will apply the KNN classification in R using two packages: the `class` and the `caret`. We will also conduct KNN classification on two data sets: one in which all predictor variables are the measured type and the other data set in which some of the predictor variables are attribute variables with a different number of levels. 
+
+<p><font color="black" face="Verdana, Geneva, sans-serif" size="+1.5">**Using the `class` package and the `iris` data**</font></p>
+
+To run the KNN algorithm in R we will use the `knn()` function which is part of the `class` package. This function requires the following input information:
+
+1) a matrix containing the predictor associated with the training data: `training.X`
+2) a matrix containing the predictor associated with the data for which we wish to make predictors: `test.X`
+3) a vector containing the class labels for the training observations: `train`
+4) a number of nearest neighbours to be used by the classifier: `K`
+
+Let us illustrate the K Nearest Neighbours algorithm classification on the well known Iris Dataset. This famous (Fisher's or Anderson's) iris data set gives the measurements in centimetres of the variables' sepal length and width and petal length and width, respectively, for 50 flowers from each of 3 species of iris. The species are Iris setosa, versicolor, and virginica.
+
+```{r}
+# load iris data
+suppressPackageStartupMessages(library(dplyr))
+data("iris") 
+glimpse(iris)
+```
+Note that apart from the `Species` category the rest of the variables are all numeric types.
+
+Since classification is a type of Supervised Learning, we will would require two sets of data: **training data** and **test data**. Hence, we will divide the dataset into two subsets in the proportions of 80:20 percent. Since the `iris` dataset is sorted by `Species` by default, we will first have to mix up the data rows and then take the subset: 
+
+- `iris.train`: training subset 
+- `iris.test`: testing subset
+
+```{r}
+set.seed(123) # required to reproduce the results
+rnums<- sample(rep(1:150)) # randomly generate numbers from 1 to 150; 150 - number of rows 
+iris<- iris[rnums, ] # jumbling up "iris" dataset by randomising 
+#head(iris, n=10)
+DT::datatable(iris)
+```
+
+Remember that data should be normalised prior to splitting it into training and testing sets. Therefore, as our next step we will normalise data, scaling it to a z-score metric to have values between 0 and 1, after which we will split it into two subsets: training and testing. 
+
+```{r}
+# normalise data
+normalise <- function(x){
+  return ((x-min(x)) / (max(x)-min(x)))
+}
+
+iris_norm <- as.data.frame(lapply(iris[,c(1,2,3,4)], normalise))
+#head(iris_norm, n=10)
+DT::datatable(iris_norm)
+
+# split data
+iris_train <- iris_norm[1:120, ]
+iris_train_target <- iris[1:120, 5]
+iris_test <- iris_norm[121:150, ]
+iris_test_target <- iris[121:150, 5]
+summary(iris_norm)
+```
+
+Once we have prepared our data for the application of the KNN classification we can run the algorithm. We can also obtain predicted probabilities, given test predictors by setting the probability argument as true: `prob = TRUE`. 
+
+```{r}
+# If you don't have class installed yet, uncomment and run the line below
+#install.packages("class")
+library(class)
+model_knn <- knn(train = iris_train, 
+                 test = iris_test, 
+                 cl = iris_train_target, 
+                 k = 10,
+                 prob  = TRUE)
+model_knn
+
+attributes(model_knn)$prob
+```
+
+Unfortunately, this only returns the predicted probability of the most common class. In the binary case, this would be sufficient to recover all probabilities, however, for multi-class problems, we cannot recover each of the probabilities of interest. This will simply be a minor annoyance for now, which we will fix when we introduce the `caret` package for model training.
+
+A common method for describing the performance of a classification model is the **_confusion matrix_**. So, to check how well the model has performed we will construct the confusion matrix, which is a table that is used to show the number of correct and incorrect predictions on a classification problem when the real values of the *test data* are known. For a two class problem it is of the format
+
+![](images/confusion_matrix.png?width=30pc)
+
+The `TRUE` values are the number of correct predictions made.
+
+```{r}
+how_well <- data.frame(model_knn, iris_test_target) %>% 
+  mutate(result = model_knn == iris_test_target)
+
+how_well
+
+confusion_matrix <- table(iris_test_target, model_knn)
+
+summary(model_knn)
+confusion_matrix
+```
+
+The values on the diagonal shows the number of correctly classified instances for each category. In our example it is showing that the KNN algorithm has correctly classified 29 instances out of a total 30 data points in the test data. The values not on the diagonal imply that they have been incorrectly classified. In our case it is only 1 observation, giving an accuracy of `r round(1 - 1/30, 2)*100`%.
+
+The simplest metric for model classification is the overall **_accuracy rate_**. To evaluate predicted classes, we are going to create a function that can calculate the accuracy of the KNN algorithm.
+
+```{r}
+# calculate percentage accuracy
+accuracy <- function(x){
+  sum(diag(x) / (sum(rowSums(x)))) * 100
+}
+accuracy(confusion_matrix)
+```
+
+Although the overall accuracy rate might be easy to compute and to interpret, it makes no distinction about the type of errors being made. Choosing the correct level of flexibility is critical to the success of any machine learning method. For the KNN method this can be adjusted by trying different values of `K`, but the bias-variance trade off can make this a difficult task.
+
+<p><font color="black" face="Verdana, Geneva, sans-serif" size="+1.5">**Using the `caret` package and the `penguins` data**</font></p>
+
+The R's [`caret`](https://cran.r-project.org/web/packages/caret/caret.pdf) package (**c**lassification **a**nd **re**gression **t**raining) holds many functions that help to build predictive models. It holds tools for data splitting, pre-processing, feature selection, tuning and supervised – unsupervised learning algorithms, etc. The `caret` package provides direct access to various functions for training a model with a machine learning algorithm for KNN classification. But, before we can use `caret` to perform various tasks to carry out the necessary machine learning work, we need to familiarise ourselves with our data.
+
+The `penguins` data set is available from the `palmerpenguins` package. It includes 6 measurements of 344 penguin species and information about the year during which data was collected. We will start by loading the R packages we will need for this exercise and reading the `penguins` data set.
+
+```{r}
+# If you don't have tidyr, caret, gmodels, psych, palmerpenguins and pscl installed yet, uncomment and run the lines below
+#install.packages("tidyr")
+#install.packages("caret")
+#install.packages("gmodels")
+#install.packages("psych")
+#install.packages("palmerpenguins")
+#install.packages("pscl") # pR2()
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(tidyr))
+suppressPackageStartupMessages(library(caret))
+suppressPackageStartupMessages(library(gmodels)) # CrossTable()
+suppressPackageStartupMessages(library(psych)) # dummy.code()
+library(palmerpenguins)
+library(ggplot2)
+
+penguins <- read.csv(path_to_file("penguins.csv"))
+glimpse(penguins)
+```
+
+- `species` a factor denoting penguin species (Adélie, Chinstrap and Gentoo)
+- `island` a factor denoting an island in the Palmer Archipelago, Antarctica (Biscoe, Dream or Torgersen)
+- `bill_length_mm` a number denoting bill length (millimetres)
+- `bill_depth_mm` a number denoting bill depth (millimetres)
+- `flipper_length_mm` an integer denoting flipper length (millimetres)
+- `body_mass_g` an integer denoting body mass (grams)
+- `sex` a factor denoting penguin sex (female, male)
+- `year` an integer denoting the study year (2007, 2008 or 2009)
+
+For k-NN classification, we are going to predict the categorical variable `species` using all the other variables within the data set. This data set has both measured and attribute variables as the predictors. As `year` is a variable of the recording we will not consider it in our modelling and therefore we will remove it from the data set we will work with. ML algorithms are sensitive to missing values. For the aim of this analysis, instead of constructing imputation for the missing values we will simply drop them from the data set.
+ 
+```{r, warning = FALSE, comment = FALSE}
+pingo <- penguins[1:7]
+
+pingo %>%
+  summarise_all(funs(sum(is.na(.)))) %>%
+  pivot_longer(cols = 1:7, names_to = 'columns', values_to = 'NA_count') %>%
+  arrange(desc(NA_count)) %>%
+  ggplot(aes(y = columns, x = NA_count)) + geom_col(fill = 'deepskyblue4') +
+  geom_label(aes(label = NA_count)) +
+  theme_minimal() +
+  labs(title = 'Penguins - NA Count',
+       caption = "Visualisation: https://www.r-bloggers.com/2020/06/penguins-dataset-overview-iris-alternative-in-r",
+       y = "variables") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+data_class <- pingo %>% 
+  drop_na()
+```
+Next, we need to prepare data further for our k-NN classification. First, we will put our outcome variable `species` into its own object and remove it from the data set.
+
+```{r}
+species_outcome <- data_class %>% select(species)
+
+# remove original variable from the data set
+data_class <- data_class %>% select(-species)
+
+glimpse(data_class)
+```
+
+We see that `bill_length_mm`, `bill_depth_mm`, `flipper_length_mm` and `body_mass_g` are measured variables of which the features are measured on different metrics, which means they have to be scaled. To do this we are going to use the `scale` function, which means we are scaling to a z-score metric.
+
+```{r}
+data_class[, c("bill_length_mm",
+               "bill_depth_mm", 
+               "flipper_length_mm", 
+               "body_mass_g")] <- scale(data_class[, c("bill_length_mm", 
+                                                      "bill_depth_mm", 
+                                                      "flipper_length_mm", 
+                                                      "body_mass_g")])
+glimpse(data_class)
+head(data_class)
+```
+
+As our next step in preparing data for the application of the KNN algorithm we need to dummy code attribute variables. From data description we know that the variable `island` is an attribute variable that has three levels and `sex` is an attribute variable with two levels.
+
+We will first dummy code the attribute variable `sex` that has only two levels and then the one with more than two levels using the `dummy.code()` function from the [`psych` package](https://cran.r-project.org/web/packages/psych/psych.pdf).
+
+```{r}
+data_class$sex <- dummy.code(data_class$sex)
+```
+
+For `island`, the variable `dummy.code()` function will create three new variables coded with 0 and 1, which will then need to be combined with the original data set. As the final preparation, since we have created a single variable for each island category we will now remove the original `island` variable from our data. 
+
+```{r}
+island <- as.data.frame(dummy.code(data_class$island))
+data_class <- cbind(data_class, island)
+data_class <- data_class %>% select(-island)
+
+glimpse(data_class)
+
+print.data.frame(head(data_class, ))
+```
+Once we have prepared data, we can run the KNN algorithm. First, we will split the data into training and test sets. We partition 80% of the data into the training set and the remaining 20% into the test set.
+```{r KNN}
+
+set.seed(1) # set the seed to make the partition reproducible
+
+# 80% of the sample size
+smp_size <- floor(0.80 * nrow(data_class))
+
+train_ind <- sample(seq_len(nrow(data_class)), size = smp_size)
+
+# creating test and training sets that contain all of the predictors
+class_pred_train <- data_class[train_ind, ]
+class_pred_test <- data_class[-train_ind, ]
+```
+
+We will also split the response variable into training and test sets using the same partition as above.
+
+```{r}
+species_outcome_train <- species_outcome[train_ind, ]
+species_outcome_test <- species_outcome[-train_ind, ]
+```
+
+We will start by using the `knn()` classification function available from the `class` package. There are several rules of thumb we can use when choosing the number of `k`. One that we will adopt is the square root of the number of observations in the training set, which in our case is `r length(species_outcome_train)`. So, in this case, we select `r round(sqrt(length(species_outcome_train)), 0)` as the number of neighbours.
+
+```{r}
+pingo_knn <- knn(train = class_pred_train, test = class_pred_test, cl = species_outcome_train, k=16)
+
+
+# put "species_outcome_test" in a data frame
+species_outcome_test <- data.frame(species_outcome_test)
+
+# merge "pingo_knn" and "species_outcome_test" 
+class_comparison <- data.frame(pingo_knn, species_outcome_test)
+
+# specify column names for "class_comparison"
+names(class_comparison) <- c("predicted_species", "observed_species")
+
+# inspect "class_comparison" 
+DT::datatable(class_comparison)
+```
+
+To evaluate the model, this time we will construct the confusion matrix by using the `CrossTable()` function available from the [`gmodels`](https://cran.r-project.org/web/packages/gmodels/gmodels.pdf) package. 
+
+```{r}
+CrossTable(x = class_comparison$observed_species, y = class_comparison$predicted_species, prop.chisq=FALSE, prop.c = FALSE, prop.r = FALSE, prop.t = FALSE)
+```
+
+The results of the confusion matrix indicate that our model predicts species very well. The numbers are all zeros in the off-diagonals apart from one case in which a penguin from the Chinstrap class has been classified as Adelie. This is indicating that our model has successfully classified the outcome based on the given predictors.
+
+Next, we will run the KNN classification using the `caret` package which 'authomatically' picks the optimal number of neighbours `K`. 
+
+```{r}
+### caret
+
+pingo_knn_caret <- train(class_pred_train, 
+                         species_outcome_train,
+                         method = "knn", 
+                         preProcess = c("center", "scale"))
+
+pingo_knn_caret
+```
+
+
+Looking at the output of the `caret` package KNN model, we can see that it chose `K = 7`, given that this was the number at which accuracy and kappa peaked. Kappa statistic is a measure of inter-rater reliability which is a more robust measure than a simple percent agreement calculation. However, its interpretation is not as intuitive and easy to comprehend as a single percentage measure. For more on the kappa statistic see the [Statistic How To](https://www.statisticshowto.com/cohens-kappa-statistic/) website.
+
+```{r}
+plot(pingo_knn_caret)
+```
+
+Next, we compare our predicted values of `species` to our actual values. We also print the confusion matrix, which will give an indication of how well our model has predicted the actual values. In the `caret` package the confusion matrix output also shows overall model statistics and statistics by class.
+
+We can see that we have obtained the same results as previously. Do you have any suggestions why that may be? 
+
+```{r}
+knn_predict <- predict(pingo_knn_caret, newdata = class_pred_test) 
+
+confusionMatrix(knn_predict, as.factor(species_outcome_test$species_outcome_test))
+```
+
+So far we have learnt how to prepare data for KNN as well as conduct k-NN classification. In the next section we will learn about another popular classification method: logistic regression.
+
+<p><font color="black" face="Verdana, Geneva, sans-serif" size="+1.5">**Logistic Regression**</font></p>
+
+Often in studies, we encounter outcomes that are not continuous, but instead fall into 1 of 2 categories. In these cases we have binary outcomes, variables that can have only two possible values:
+
+- Measuring a performance labeled as $Y$. Candidates are classified as “good” or “poor”, coded as 1 and 0 respectively, i.e. $Y$=1 representing good performance and $Y$=0 representing poor performance.
+- Risk factor for cancer: person has cancer ($Y$=1), or does not ($Y$=0)
+- Whether a political candidate is going to win an election: lose $Y$=0, win $Y$=1
+- ‘Health’ of a business can be observed by monitoring the solvency of the firm: bankrupt $Y$=0, solvent $Y$=1
+
+Here $Y$ is the binary response variable, that is coded as 0 or 1 and rather than predicting these two values for binary response we try to model the probabilities that $Y$ takes one of these two values.
+
+Let us examine one such example using [the bankruptcies data](https://tanjakec.github.io/mydata/Bankrupticies.csv) available from 👉 <https://tanjakec.github.io/mydata/Bankruptcies.csv>.
+
+[`Bankruptcies.csv`](https://tanjakec.github.io/mydata/Bankruptcies.csv) file contains data of the operating financial ratios of 66 firms which either went bankrupt or remained solvent after a 2 years period. The data is taken from the book ["Regression Analysis by Example"](https://www.wiley.com/en-us/Regression+Analysis+by+Example%2C+5th+Edition-p-9781118456248) by [Chatterjee](http://people.stern.nyu.edu/schatter/chatterjee.html) and [Hadi](http://www1.aucegypt.edu/faculty/hadi/). The variables are:
+
+- three financial ratios (the explanatory variables; measured variables): 
+  * $X_1$: Retained Earnings / Total Assets 
+  * $X_2$: Earnings Before Interest and Taxes / Total Assets
+  * $X_3$: Sales / Total Assets
+- a binary response variable $Y$: 
+  * 0 - if bankrupt after 2 years
+  * 1 - if solvent after 2 years
+
+```{r}
+bankrup <- read.csv("https://tanjakec.github.io/mydata/Bankruptcies.csv")
+summary(bankrup)
+```
+
+Since 
+
+1) linear regression expects a numeric response variable and 
+2) we are interested in the analysis of the risk, ie. the probability of a firm going bankrupt based on its Retained Earnings / Total Assets ratio (RE/TA ratio) figure 
+
+it would be very attractive to be able to use the same modelling techniques as for linear models. We are going to do just that: fit a simple linear regression model to examine this relationship to see if it will work.
+
+$$Y = b_0 + b_1X_3$$
+```{r}
+model_lm = lm(Y ~  X1, data = bankrup)
+# plot a scatter diagram of Y vs X1
+plot(Y ~  X1, data = bankrup, 
+     col = "orangered", pch = "|", ylim = c(-0.2, 1.2),
+     main = "using linear regression function for binomial Y")
+abline(h = 0, lty = 3)
+abline(h = 1, lty = 3)
+abline(h = 0.5, lty = 2)
+abline(model_lm, lwd = 3, col = "navy")
+```
+
+Examining this plot we can make two obvious observations:
+
+1) the higher the ration of RE/TA the better the chances is for the firm to be solvent 
+
+2) by analysing the risk we analyse a chance, a probability of a company being solvent based on the value of the RE/TA. Since $Y$ is limited to the values of 0 and 1, rather than predicting these two values we will try to model the probabilities $p$ that $Y$ takes one of these two values.
+
+Let $p$ denote the probability that $Y$ = 1 when $X = x$. If we use the standard linear model to describe $p$, then our model for the probability would be
+
+
+$$p = P(Y = 1 | X = x) = b_0 + b_1x + e$$
+
+Note that since $p$ is a probability it must lie between 0 and 1. It seems rational that $X\hat{b}$ is a reasonable estimate of $P(Y=1∣X=x)$. Nonetheless, the plot has flagged a big issue with this model and that is that it has predicted probabilities less than 0.  
+  
+As we can see the linear regression model does not work for this type of problem, for which we do not expect predictions that are off-scale values: below zero or above 1. 
+
+Apart from the fact that the linear function given is unbounded, and hence cannot be used to model probability, the other assumptions of linear regression when dealing with this type of a problem are also not valid: 
+
+- the relationship between $Y$ and $X$ is nonlinear
+- error terms are not normally distributed
+- the assumption of equal/constant variance (homoscedasticity) dos not hold
+
+
+A workaround these issues is to fit a different model, one that is bounded by the minimum and maximum probabilities. It makes better sense to model the probabilities on a transformed scale and this is what is done in logistic regression analysis. The relationship between the probability $p$ and $X$ can be presented by a **logistic regression function**.
+
+```{r, echo=FALSE, results='hide', warning = FALSE}
+lgreg_plot <- glm(Y ~  X1, data = bankrup, binomial(logit))
+summary(lgreg_plot)
+range(bankrup$Y)
+range(bankrup$X1)
+x1re_ta <- seq(-309, 69, 3)
+yx1 <- predict(lgreg_plot, list(X1 = x1re_ta), type="response")
+```
+
+```{r, echo=FALSE}
+plot(Y ~  X1, data = bankrup, 
+     col = "orangered", pch = "|", ylim = c(-0.2, 1.2),
+     main = "using logistic regression function for binomial Y ")
+abline(h = 0, lty = 3)
+abline(h = 1, lty = 3)
+lines(x1re_ta, yx1, lty = 1, lwd = 3, col = "navy")
+```
+
+The shape of the S-curve given in the figure above can be reproduced if we model the probabilities as follows
+
+$$p = P(Y = 1 | X = x) = \frac{e^{\beta_0 + \beta_1x}}{1 + e^{\beta_0 + \beta_1x}},$$
+
+where $e$ is the base of the natural logarithm. The logistic model can be generalized directly to the situation where we have several predictor variables. The probability $p$ is modelled as
+
+$$p = P(Y = 1 | X_1 = x_1, X_2=x_2, ..., X_q=x_q) = \frac{e^{\beta_0 + \beta_1x_1 + \beta_2x_2 + ... + \beta_qx_q}}{1 + e^{\beta_0 + \beta_1x_1 + \beta_2x_2 + ... + \beta_qx_q}},$$
+where $q$ is the number of predictors. The two equations above are called the logistic regression functions. It is nonlinear in the parameters $\beta_0, \beta_1,... \beta_q$. However, it can be linearised by the **logit transformation**. Instead of working directly with $p$ we work with a transformed value of $p$. If $p$ is the probability of an event happening, the ratio $\frac{p}{(1-p)}$ is called the **odds ratio** for the event. By moving some terms around
+
+$$1 - p = P(Y = 1 | X_1 = x_1, X_2=x_2, ..., X_q=x_q) = \frac{1}{1 + e^{\beta_0 + \beta_1x_1 + \beta_2x_2 + ... + \beta_qx_q}},$$
+we get 
+
+$$\frac{p}{1-p} = e^{\beta_0 + \beta_1x_1 + \beta_2x_2 + ... + \beta_qx_q}$$
+Taking the natural logarithm of both sides of the above expression, we obtain
+
+$$g(x_1, x_2, ... x_q) = log(\frac{p}{1-p}) = \beta_0 + \beta_1x_1 + \beta_2x_2 + ... + \beta_qx_q$$
+where the logarithm of the odds ratio is called the **logit**. We realise that the logit transformation produces a linear function of the parameters $\beta_0, \beta_1,... \beta_q$. It is important to realise is that while the range of values of $p$ of binomial response $Y$ is between 0 and 1, the range of values of $log\frac{p}{(1-p)}$ is between $-\infty$ and $+\infty$. This makes the logarithm of the odds ratio, known as logits, more appropriate for linear regression fitting.
+
+In logistic regression the response probabilities are modelled by the logistic distribution function. That is, the model does not use the binned version of the predictor, but rather the log odds are modelled as a function of the predictor. The model parameters are estimated by working with logits which produces a model that is linear in the parameters. 
+
+The method of model estimation is the **maximum likelihood** method. Maximum likelihood parameter estimation is a technique that can be used when we can make assumptions about the probability distribution of the data. Based on the theoretical probability distribution and the observed data, the likelihood function is a probability statement that can be made about a particular set of parameter values. In logistic regression modelling the maximum likelihood parameters are obtained numerically using an interactive procedure. This is explained in the [book by McCullagh and Nelder](http://www.utstat.toronto.edu/~brunner/oldclass/2201s11/readings/glmbook.pdf) in Section 4.4.2.  
+Although the method of maximum likelihood is used for the model estimation we ask the same set of questions that are usually considered in linear regression. That is, we can not use the very familiar least square regression tools such as $R^2$, $t$ and $F$, but that is not to say that we are not able to answer the same questions as we do when assessing a leaner regression model for which we use the listed tools.
+
+[John Nelder](https://en.wikipedia.org/wiki/John_Nelder) and [Robert Wedderburn](https://en.wikipedia.org/wiki/Robert_Wedderburn_(statistician)) formulated a modelling technique for accommodating response variables with non-normal conditional distribution. Logistic regression and ordinary linear regression fall into this larger class of techniques called [**Generalised Linear Models**](https://docs.ufpr.br/~taconeli/CE225/Artigo.pdf) (**GLM**s) which accommodate many different probability distributions. They substantially extend the range of application of linear statistical models by accommodating response variables with non-normal conditional distribution. Except for the error, the right hand side of a GLM model equation is basically the same as for a linear model. This is reflected in the syntax of the `glm()` function in R, which expects the formula that specifies the right-hand side of GLM to be the same as those used for the least square linear regression model, with the addition of description for the error distribution.
+
+
+<p><font color="black" face="Verdana, Geneva, sans-serif" size="+1.5">**Example in R **</font></p>
+
+In the following examples we will apply logistic regression in R by directly applying the `glm()` function and by using the `caret` package. We will use two data sets: [`Bankrupticies.csv`](https://tanjakec.github.io/mydata/Bankruptcies.csv) which we introduced earlier and the `CreditCard` data set from the `AER` package. This is cross-section data on the credit history for a sample of applicants for a type of credit card that consists of 1319 observations with 12 variables.   
+
+<p><font color="black" face="Verdana, Geneva, sans-serif" size="+1.5">**Using the `glm()` function **</font></p>
+
+Through this example we will fit a logistic regression model using the `glom` function in order to learn how such models are fitted and evaluated. 
+
+We have already uploaded the [`Bankrupticies.csv`](https://tanjakec.github.io/mydata/Bankruptcies.csv) data file, which contains information of the operating financial ratios of 66 firms which either went bankrupt or remained solvent after a 2 years period earlier. Hence, the response variable is defined as
+
+$$
+Y =
+  \begin{cases}
+   0 & \text{if bunkrupt after 2 year}} \\
+   1       & \text{if solvent after 2 years}
+  \end{cases}
+$$
+
+Here, we will instead of predicting $Y$, fit the model to predict the logits $log\frac{p}{(1-p)}$, which after transformation means we can get the predicted probabilities for $Y$. 
+
+Let us remind ourselves what the data looks like.
+
+```{r}
+suppressPackageStartupMessages(library(dplyr))
+
+bankrup <- read.csv("https://tanjakec.github.io/mydata/Bankruptcies.csv")
+summary(bankrup)
+
+glimpse(bankrup)
+```
+
+Before we start the model fitting procedure we will make test-train split data in the proportion of 80:20.
+
+```{r}
+
+set.seed(123)
+split_idx = sample(nrow(bankrup), 53)
+bankrup_train = bankrup[split_idx, ]
+bankrup_test = bankrup[-split_idx, ]
+```
+
+We will have a quick glance at data to see what the training data is like
+```{r}
+glimpse(bankrup_train)
+summary(as.factor(bankrup_train$Y))
+summary(bankrup_train)
+```
+
+We have a nice split in terms of number of observations for each class of Y. Next, we estimate a logistic regression model using the `glm()` (generalised linear model) function which we save as an object. 
+
+```{r, warning = FALSE}
+model <- glm(Y ~ X1 + X2 + X3, data = bankrup_train, family = binomial(logit))
+model
+```
+
+In order to get all the results saved in the `glm_model` object we use the summary command.
+
+```{r}
+summary(model)
+```
+
+>The key components of R’s summary( ) function for generalised linear models for binomial family with the logit link are:
+>
+>- **Call**: just like in the case of fitting the `lm()` model this is R reminding us what model we ran, what options we specified, etc
+>
+>- the **Deviance Residuals** are a measure of model fit. This part of the output shows the distribution of the deviance residuals for individual cases used in the model. Below we discuss how to use summaries of the deviance statistic to assess model fit
+>
+>- the **Coefficients**, their standard errors, the z-statistic (sometimes called a Wald z-statistic), and the associated p-values. The logistic regression coefficients give the change in the log odds of the outcome for a one unit increase in the predictor variable
+>
+> At the end there are **fit indices**, including the null and deviance residuals and the AIC, which are used to assess overall model fit.
+
+We realise that the output above has a resemblance to the standard regression output. Although they differ in the type of information, they serve similar functions. Let us make an interpretation of it.
+
+The fitted logarithm of the odds ratio, i.e. logit of the probability $p$ of the firm remaining solvent after two years is modelled as:
+
+$$\hat{g}(X_1, X_2, ...X_q) = -9.8846 +  0.3238X_1 + 0.1779X_2 + 4.9443X_3$$
+Remember that here instead of predicting $Y$ we obtain the model to predict $log{frac{p}{(1-p)}$. Using the transformation of the logit we get the predicted probabilities of the firm being solvent.
+
+The estimated parameters are expected changes in the logit for unit change in their corresponding variables when the other, remaining variables are held fixed. That is, the logistic regression coefficients give the change in the log odds of the response variable for a unit increase in the explanatory variable:
+
+- For a unit change in X1, the log odds of a firm remaining solvent increases by 0.33, while the other variables, X2 and X3, are held fixed
+- For a unit change in X2, the log odds of a firm remaining solvent increases by 0.18, while the other variables, X1 and X3, are held fixed
+- For a unit change in X3, the log odds of a firm remaining solvent increases by 5.09, while the other variables, X1 and X2, are held fixed
+
+This is very hard to make sense of. We have predicted log odds and in order to interpret them into a more sensible fashion we need to "anti logge" them as the changes in odds ratio for a unit change in variable $X_i$, while the other variables are held fixed $e^(\beta_i)$.
+
+```{r}
+round(exp(coef(model)), 4)
+```
+
+Now, we can interpret the coefficients of the rations as follows:
+
+- The odds of a firm being solvent (vs being bankrupt) increases by 1.38 for a unit change in ratio $X_1$, all else in the model being being fixed. That is, for an increase in $X_1$ the relative odds of
+$$\frac{P(Y=1)}{P(Y=0)}$$
+
+is multiplied by $e^{\beta_1} = e^{0.3238} = 1.38$, implying that there is an increase of $38\%$
+
+- The odd of a firm being solvent (vs being bankrupt) increases by 1.20 for a unit change in ratio $X_2$, all else in the model being being fixed... implying that there is an increase of $20\%$
+
+- The odd of a firm being solvent (vs being bankrupt) increases by 140.37 for a unit change in ratio $X_3$, all else in the model being being fixed... implying that there is an increase of $40.37\%$
+
+The column headed as `z value` is the ratio of the coefficients (`Estimate`) to their standard errors (`Std. Error`) known as **Wald statistics** for testing the hypothesis that the corresponding parameter are zeros. In standard regression this would be the **t-test**. Next to Wald test statistics we have their corresponding $p$-values (`Pr(>|z|)`) which are used to judge the significance of the coefficients. Values smaller than $0.5$ would lead to the conclusion that the coefficient is significantly different from $0$ at $5\%$ significant level. From the output obtained we see that none of the $p$-values is smaller than $0.5$ implying that none of the variables individually is significant for predicting the logit of the observations.
+
+We need to make a proper assessment to check if the variables collectively contribute in explaining the logit. That is, we need to examine whether the coefficients $\beta_1$,  $\beta_2$ and $\beta_3$ are all zeros. We do this using the $G$ statistic, which stands for **goodness of fit**
+
+$$G = \text{likelihood without the predictors}- \text{likelihood with the predictors}$$
+$G$ is distributed as a _chi-square_ statistic with 1 degree of freedom, so a _chi-square test_ is the test of the fit of the model (note, that $G$ is similar to an $R^{2}$ type test). The question we have now is where do we get this statistic from?
+
+In addition to the above, the summary of the model includes the deviance and degrees of freedom for a model with only an intercept (the null deviance) and the residual deviance and degrees of freedom for a fitted model. We calculate the $G$ statistic as difference in deviances between the null model and the fitted model
+
+Before we calculate the $G$ statistic we need to specify the hypotheses:
+
+- $H_0: \beta_i = 0$ 
+- $H_1: \text{at least one is different from}0$
+
+where $i = 1, 2, 3$. The decision rule is: 
+
+- If $G_{calc} < G_{crit} \Rightarrow H_0 \text{, o.w. } H_1$
+
+We can also consider: If its associated $p$-value is greater than $0.05$ we conclude that the variables do not collectively influence the logits, if however $p$-value is less that $0.05$ we conclude that they do collectively influence the logits. 
+
+Next we calculate the $G$ statistic and the degrees of freedom of the corresponding critical value. Knowing what it is, we can calculated manually or obtain it using the `pscl::pR2()` function
+
+```{r, warning = FALSE}
+G_calc <- model$null.deviance - model$deviance
+Gdf <- model$df.null - model$df.residual
+pscl::pR2(model)
+G_calc
+qchisq(.95, df = Gdf) 
+1 - pchisq(G_calc, Gdf)
+```
+
+As $G_{calc}$ = 67.52 > $G_{crit}$ = 7.81 $\Rightarrow H_1$, ie. $p\text{-value}$ = 0.00 < 0.05 we can conclude that this is a statistically valid model and that the variables collectively have explanatory power. The next question we need to ask is do we need all three variables?
+
+In linear regression we assessed the significance of individual regression coefficients, i.e. the contribution of the individual variables using the _t-test_. Here, we use the _z scores_ to conduct the equivalent Wald statistic (test). The ratio of the logistic regression has a normal distribution as opposed to the t-distribution we have seen in linear regression. Nonetheless, the set of hypotheses we wish to test is the same:
+
+- $H_0: \beta_i = 0$    (coefficient $i$ is not significant, thus $X_i$ is not important)
+- $H_1: \beta_i \neq 0$    (coefficient $i$ is significant, thus $X_i$ is important)
+
+We are going to use a simplistic approach in testing these hypotheses in terms of the adopted decision rule. Decision Rule: If the Wald's z statistic lies between -2 and +2, then the financial ratio, $X_i$, is not needed and can be dropped from the analysis. Otherwise, we will keep the financial ratio. However, there is some scope here for subjective judgement depending upon how near to +/-2 theWald's $z$ value is. Therefore we may have to do some "manual" searching upon an acceptable set of explanatory variables, as the z value of all three variables in the model lies between +/-2.
+
+In our example none of the variables appear to be important judging upon their Wald's z statstic, yet based on the chi-square statistic $G$, we know that the fitted model is valid and that the selected variables collectively contribute in explaining the logits.
+
+To evaluation individual contribution of the variables used in a logistic regression model we examine what happens to the change in the chi-square statistic $G$ when the $i^{th}$ variable is removed from the model. A large $p$-value means that the reduced model explains about the same amount of variation as the full model and, thus, we can probably leave out the variable.
+
+Decision Rule: if $p$-value > 0.05 $\Rightarrow$ the variable can be taken out, otherwise if $p$-value < 0.05 keep the variable in the model.
+
+Rather then fitting individual models and doing a manual comparison we can make use of  the anova function for comparing the nested model using the chi-square test.
+
+```{r, warning = FALSE}
+anova(model, test="Chisq")
+```
+
+We can remove $X_3$ variable from the model
+
+```{r, warning = FALSE}
+model_new <- update(model, ~. -X3, data = bankrup)
+summary(model_new)
+anova(model_new, test="Chisq")
+```
+
+To compare the fit of the alternative model we will use the **A**kaike **I**nformation **C**riterion (**AIC**), which is an index of fit that takes account of parsimony of the model by penalising for the number of parameters. It is defined as
+
+$$AIC = - 2 \times \text{maximum log-likelihood} + 2 \times \text{number of parameters}$$
+and thus smaller values are indicative of a better fit to the data. In the context of logit fit, the AIC is simply the residual deviance plus twice the number of regression coefficients.   
+
+The AIC of the initial model is 13.787 and of the new model 15.472. Checking the new model, we can see that it consists of the variables that all significantly contribute in explaining the logits. So, in the spirit of parsimony we can choose the second model to be a better fit.
+
+To obtain the overall accuracy rate we need to find the predicted probabilities of the observations kept aside in the `bankrup_test` subset. By default, `predict.glm()` uses `type = "link"` and if not specified otherwise R is returning:
+
+$$\hat{\beta_0} + \hat{\beta_1}X_1 + \hat{\beta_2}X_2$$
+for each observation, which are not predicted probabilities. To obtain the predicted probabilities:
+
+$$\frac{1}{1 + e^{\hat{\beta_0} + \hat{\beta}_1x_1 + \hat{\beta}_2x_2}}$$
+when using the `predict.glm()` function we need to use `type = "response"`.
+
+```{r}
+link_pr <- round(predict(model_new,  bankrup_test, type = "link"), 2)
+link_pr
+
+response_pr <- round(predict(model_new,  bankrup_test, type = "response"), 2)
+
+t(bankrup_test$Y)
+
+coefficients(model_new)
+```
+
+Here we illustrate how these predictions are made for the third and twelfth observations in the `bankrup_test` data subset.
+
+```{r}
+bankrup_test[c(3, 12),]
+
+round(1/(1+exp(-(-0.5503398 + 0.1573639*(-18.1) + 0.1947428*(-6.5)))), 4)
+round(1/(1+exp(-(-0.5503398 + 0.1573639*54.7 + 0.1947428*14.6))), 4)
+```
+
+Knowing how the probabilities are estimated for the test data we can now describe the performance of a classification model using the confusion matrix.
+
+```{r}
+how_well <- data.frame(response_pr, bankrup_test$Y) %>% 
+  mutate(result = round(response_pr) == bankrup_test$Y)
+
+how_well
+
+confusion_matrix <- table(bankrup_test$Y, round(response_pr))
+confusion_matrix
+
+accuracy(confusion_matrix) # accuracy() function we created for KNN classification earlier
+```
+
+The results above are showing that our chosen logistic regression model has correctly classified all firms from the `bankrup_test` data subset, giving an accuracy of 100%.
+
+<p><font color="black" face="Verdana, Geneva, sans-serif" size="+1.5">**Using the `caret` package**</font></p>
+
+```{r, warning = FALSE}
+# If you don't have AER installed yet, uncomment and run the lines below
+#install.packages("AER")
+suppressPackageStartupMessages(library(AER))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(caret))
+data("CreditCard")
+glimpse(CreditCard)
+summary(CreditCard)
+```
+
+The `CreditCard` data contains a response variable `card` that indicates whether a consumer was declined (`no`) or approved for a credit card (`yes`). The first step is to partition the data into training and testing sets.
+
+```{r}
+#CreditCard$Class <- CreditCard$card
+#CreditCard <- subset(CreditCard, select=-c(card, expenditure, share))
+summary(CreditCard) 
+
+set.seed(123)
+train_ind <- createDataPartition(CreditCard$card, p = 0.75, list = FALSE)
+
+train_data <- CreditCard[train_ind, ]
+test_data <- CreditCard[-train_ind, ]
+```
+Although it might appear that there is no difference in splitting data using the `caret`'s `createDataPartition()` function from the previously used `sample()`, `createDataPartition()` tries to ensure a split that has a similar distribution of the supplied variable in both datasets. Next we can begin training a model. To do this we have to supply four arguments to the `train()` function
+
+- `form = card ~ .` specifies the response variable. It also indicates that all available predictors should be used
+- `data = card_trn` specifies the training data
+- `trControl = trainControl(method = "cv", number = 5)` specifies that we will be using 5-fold cross-validation
+- `method = "glm"` specifies that we will fit a generalised linear model
+
+```{r, warning = FALSE}
+credit_glm_mod = train(
+  form = card ~ .,
+  data = train_data,
+  trControl = trainControl(method = "cv", number = 5),
+  method = "glm",
+  family = "binomial"
+)
+```
+The list that we have passed to the `trControl` argument is created using the `trainControl()` function from `caret`, specifying a number of training choices for the particular resampling scheme required for model training. 
+
+```{r}
+str(trainControl(method = "cv", number = 5))
+```
+
+The elements of this list which are of most interest to us when setting up a model like the one above are the first three that are directly related to how the resampling will be done:
+
+- `method` specifies how resampling will be done: `cv`, `boot`, `LOOCV`, `repeatedcv`, and `oob`
+- `number` specifies the number of times resampling should be done for methods that require resample: `cv` and `boot`
+- `repeats` specifies the number of times to repeat resampling for methods such as `repeatedcv`
+
+The additional argument `family` which is set to `"binomial"` is not actually an argument for `train()`, but an additional argument for the `method` which is chosen for `glm`. For a factor response variable, `caret` will recognise that we are trying to perform classification and will automatically use family = "binomial" by default. Nonetheless, for the purpose of easy readability of the code it is advisable for the `family` argument to be specified.
+
+For details on the full model training and tuning see chapter 5 of [Max's](https://twitter.com/topepos) book [The caret Package](https://topepo.github.io/caret/index.html). 
+
+Calling the stored `train()` object, `credit_glm_mod`, will provide the summary of the training that has been done.
+
+```{r}
+credit_glm_mod
+```
+
+It reports the statistical method used for the model estimation, which in our case is `glm`. We see that we used 990 observations that had a binary class response: "no" and "yes", and eleven predictors. We have not done any data pre-processing, and have utilized 5-fold cross-validation. The cross-validated accuracy is reported as a proportion of correct classifications, which in our case is `r round(credit_glm_mod[[4]][[2]][1]*100, 2)`%. The stored `train()` object returns a list packed with useful information about the model's training.
+
+```{r}
+names(credit_glm_mod)
+```
+Two elements that we will be most interested in are `finalModel` and `results`.
+
+```{r}
+credit_glm_mod$finalModel
+```
+
+The `finalModel` is the object returned from `glm()`. This final model, is **fit to all of the supplied training data**. This model object is often used when we call certain relevant functions on the object returned by `train()`, one of which is `summary()`.
+
+```{r}
+credit_glm_mod$results
+```
+The `result` element shows more detailed results, in addition to the model's overall accuracy. It provides the information of an estimate of the uncertainty in our accuracy estimate.
+
+Obtaining the predictions on the test data with the object returned by `train()` is easy.
+
+```{r}
+pred <- predict(credit_glm_mod, newdata = test_data)
+head(pred, n = 10)
+```
+By default, the `predict()` function is returning classifications and this will be the case regardless of the matter being used. If instead of the default returning classifications, we want predicted probabilities, we simply specify `type = "prob"`.
+
+```{r}
+pred_prob <- round(predict(credit_glm_mod, newdata = test_data, type = "prob"), 2)
+head(pred_prob, n=10)
+```
+the `predict()` function for a `train()` object will return the probabilities for all possible classes, in this case "no" and "yes". This will be true for all methods, which is especially useful for multi-class data.
+
+To summarise the performance of the trained model we will use the `confusionMatrix()` function to see how well the model does in predicting the target variable on out of sample observations.
+```{r}
+cm <- confusionMatrix(data = pred, test_data$card)
+cm
+```
+
+The accuracy of the model measured when using the unseen test data is `r round(cm$overall[[1]], 2)*100`%. That is, out of `r dim(test_data)[1]` observations in the test subset the model has correctly classified them `r sum(diag(cm$table))` times. There is a scope for improvement. We have eleven predictors in this model and it would be useful to find out how well they contribute to the model's performance. To assess the relative importance of individual predictors in the model using the `caret` package we can utilise the `varImp()` function.
+
+```{r}
+glm_Imp <- varImp(credit_glm_mod)
+plot(glm_Imp)
+```
+
+The function automatically scales the importance scores to be between 0 and 100. Using `scale = FALSE` this normalisation step can be avoided.
+
+Unfortunately, since logistic regression has no tuning parameters we can not take advantage of the `caret`'s feature selection facility (see [Variable Selection Using The caret Package](https://r-forge.r-project.org/scm/viewvc.php/*checkout*/pkg/caret/inst/doc/caretSelection.pdf?revision=77&root=caret&pathrev=90)). 
+
+We will simple retrain the model removing `age` from the list of predictors. To ensure that each training gets the same data partitions and repeats we need to use the same seed number.
+
+```{r, warning = FALSE}
+set.seed(123)
+credit_glm_mod_1 = train(
+  form = card ~ . - age,
+  data = train_data,
+  trControl = trainControl(method = "cv", number = 5),
+  method = "glm",
+  family = "binomial"
+)
+
+credit_glm_mod_1
+summary(credit_glm_mod_1)
+```
+
+Examining the output we can see that the accuracy has increased. 
+
+```{r}
+glm_Imp_1 <- varImp(credit_glm_mod_1)
+plot(glm_Imp_1)
+```
+
+The plot above indicates that predictor `months` has the lowest impact on the overall model performance.
+
+To compare accuracy between the models we can resample the results of the trained models and compare their accuracy distributions using `caret`'s `resample` function and visualise them with the `dplot()` function. Although logistic regression has no tuning parameters, resampling can still be used to characterise the performance of the model.
+
+```{r}
+set.seed(123) # same resampling specification is used and, since the same random number seed is set
+credit_glm_mod$results
+credit_glm_mod_1$results
+results <- resamples(list(M0 = credit_glm_mod, M1 = credit_glm_mod_1))
+summary(results)
+dotplot(results)
+```
+
+However, if a strong claim needs to be made about which model is better, we could use statistical hypothesis tests to statistically check if the differences in the results are significant.
+
+```{r}
+modelDifferences <- diff(results)
+summary(modelDifferences)
+```
+ 
+The $p$-values for the model comparisons are large (0.85 for accuracy and 0.34 for Kappa) indicating that the models fail to show any difference in performance. 
+
+<p><font color="black" face="Verdana, Geneva, sans-serif" size="+1.5">**YOUR TURN 👇**</font></p>
+
+Practise by doing the following exercises:
+
+Access the `stroke` data set from <https://tanjakec.github.io/mydata/stroke.csv>. Data dictionary of this data set is given in <https://tanjakec.github.io/mydata/Stroke_DataDictionary.docx> word document.
+
+i. Split the data into a training and a test set, pre-process the data, and train a model a model of your choice from this section
+
+ii. Predict the response for the test set. What is the value of the performance metric?
+
+iii. Which predictors are most important in the model you have trained?
+
+iv. Train the model using a different method from the previous selection. Don't forget to initialise the same random number seed as the one used for the previous model training.
+
+v. Compare the accuracy between the trained models. Which one does it perform better?
+
+---
+
+Further reading:
+
+["Applied Predictive Modeling"](http://appliedpredictivemodeling.com) by [Max Kuhn](https://twitter.com/topepos)
+
+["Introduction to Statistical Learning with Applications in R" by Gareth James, Daniela Witten, Trevor Hastie and Robert Tibshirani](https://www.statlearning.com)
+
+[Max Kuhn](https://twitter.com/topepos) [The caret Package](https://topepo.github.io/caret/)
+
+---
+
+Useful links: 
+
+Check [Logistic Regression | R Data Analysis Example](https://stats.idre.ucla.edu/r/dae/logit-regression/) which uses categorical predictors.
+
+[Binary Response and Logistic Regression Analysis](http://pages.stat.wisc.edu/~mchung/teaching/MIA/reading/GLM.logistic.Rpackage.pdf)
+
+[Predictive Modeling with R and the caret Package, useR! 2013, by Max Kuhn](https://www.r-project.org/conferences/useR-2013/Tutorials/kuhn/user_caret_2up.pdf)
+
+[`caret` package webinar by Max Khun](https://www.youtube.com/watch?v=7Jbb2ItbTC4&t=279s)
+
+[Intro to Machine Learning with R & caret](https://www.youtube.com/watch?v=z8PRU46I3NY)
+
+
+Data to practise:
+
+<http://archive.ics.uci.edu/ml/index.php>
+
+[KDnuggets data sets](https://www.kdnuggets.com/datasets/index.html)
+
+[kaggle data sets](https://www.kaggle.com/datasets>)
+
+[Machine Learning on Bankruptcy](https://github.com/chanmad/Machine-Learning-on-Bankruptcy) 
+
+[The Guardian Data Journalism](https://www.theguardian.com/data)
+
+
+-----------------------------
+© 2021 Tatjana Kecojevic

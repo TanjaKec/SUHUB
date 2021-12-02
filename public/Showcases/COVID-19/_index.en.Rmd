@@ -1,0 +1,625 @@
+---
+date: "2016-04-09T16:50:16+02:00"
+title: "COVID-19"
+weight: 1
+---
+
+```{r setup, include=FALSE, message = FALSE, warning = FALSE, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      include=TRUE,
+                      prompt = TRUE,
+                      message = FALSE,
+                      warning = FALSE,
+                      cache = FALSE)
+```
+
+This is a data analysis report concerning the visualisation of the COVID-19 virus within the Republic of Serbia. All of the report is created with [R](https://www.r-project.org). To learn how to use R and develop a report like this visit [Intro to DS Bootcamp in R](http://dsbootcamp.rbind.io/).
+
+This is a [Sister Analyst](https://sisteranalyst.org/) project. 
+
+---
+
+Open data belongs to everyone; it empowers people to make informed decisions that are not clouded by misinformation, rumour and gossip. To be able to identify the underlying facts within data sets it’s crucial that individuals and communities possess the necessary skills. In other words, people should be data literate i.e. as comfortable studying models and charts as they are reading a newspaper. 
+
+One of our fundamental objectives is to reveal the power of data, we do this by teaching people how to make sense of seemingly inaccessible data formats. We believe this is a necessary step to making data a democratic resource. Why? Because the more we make decisions based on facts and science the less susceptible we are as individuals, communities and nations to untruths.
+
+At present we are attempting to map the progress of the Covid19 virus in Serbia. Serbia lags behind many countries in how it collects, processes and makes data available. The available data is often inconsistent and limited and requires a significant amount of time to organise and structure for presentation. 
+
+Up **until March 29th** the [Office for Information technologies and eGovernment of Serbia](https://www.ite.gov.rs/tekst/en/124/office-for-it-and-egovernment.php) provided the basic data relating to the regional spread of the virus, now they have apparently ended the publication of the data. Correspondingly the nation is warned not to spread misinformation, with punitive measures put in place to enforce this edict. The irony of this situation isn’t lost on us, on one hand we are told not to spread misinformation whilst simultaneously reducing the amount of factual information available to the population. 
+
+We will continue to source any available data related to Covid19 in Serbia and update our site accordingly using data published by [European Centre for Disease Prevention and Control](https://www.ecdc.europa.eu/en/publications-data/download-todays-data-geographic-distribution-covid-19-cases-worldwide) .
+
+---
+
+```{r libraries, echo=FALSE, message = FALSE, warning = FALSE, results = FALSE}
+library(readxl)
+library(tidyverse)
+library(writexl)
+library(httr)
+library(forcats)
+library(lubridate)
+library(ggplot2)
+library(gganimate)
+library(dplyr)
+library(leaflet)
+library(plotly)
+library(scales)
+library(cowplot)
+library(fontawesome)
+```
+
+
+**Using [ecdc data](https://www.ecdc.europa.eu/en/publications-data/download-todays-data-geographic-distribution-covid-19-cases-worldwide)** 
+  
+  
+```{r ecdc_data, echo = FALSE, message = FALSE, warning = FALSE, results = FALSE}
+## Using [ecdc data:](https://www.ecdc.europa.eu/en/publications-data/download-todays-data-geographic-distribution-covid-19-cases-worldwide) 
+
+url2 <- "https://www.ecdc.europa.eu/sites/default/files/documents/COVID-19-geographic-disbtribution-worldwide-2020-04-23.xlsx"
+
+# Interactive graph: hower to get date and figure
+
+GET(url2, write_disk(tf <- tempfile(fileext = ".xlsx")))
+
+covid_ecdc <- read_excel(tf)
+str(covid_ecdc)
+
+covid_yu <- covid_ecdc %>% 
+  filter(countriesAndTerritories %in% c("Bosnia_and_Herzegovina", "Croatia", "Montenegro", "North_Macedonia", "Serbia", "Slovenia"))
+
+# --- tidy data ---
+
+covid_yu <- covid_yu[, -c(2:4, 8)]
+
+
+covid_yu <- covid_yu %>% 
+  separate(dateRep, c("dateRep"), sep = "T") %>%
+  group_by(countriesAndTerritories) %>% 
+  arrange(dateRep) %>% 
+  mutate(total_cases = cumsum(cases), 
+         total_deaths = cumsum(deaths)) %>% 
+  mutate(Diff_cases = total_cases - lag(total_cases), # Difference in route between years
+         Rate_pc_cases = round(Diff_cases/lag(total_cases) * 100, 2)) %>% 
+  mutate(second_der = Diff_cases - lag(Diff_cases)) %>% 
+  rename(country = countriesAndTerritories) %>% 
+  rename(country_code =countryterritoryCode)
+# Growth Rate
+#  mutate(second = diff(total_cases, differences = 2))
+
+covid_yu$dateRep <- as.Date(covid_yu$dateRep)
+
+# ------- SERBIA ---------
+covid_sr <- covid_yu %>% 
+  filter(country_code == "SRB")
+```
+
+---
+
+**[ecdc](https://www.ecdc.europa.eu/en) data updated on <span style="color:dodgerblue3">`r max(covid_sr$dateRep)`</span>.**
+
+
+```{r ecdc_data_table, echo=FALSE}
+# show the table
+# ts <- covid_sr %>% 
+#  select(-popData2018) %>% 
+#  DT::datatable()
+#
+# widgetframe::frameWidget(ts)
+```
+
+**Daily numbers of new and death cases**
+
+```{r plot_no_CasesDeaths, echo=FALSE}
+# Plot cases and deaths day-by-day
+
+x <- list(title = "date reported")
+
+fig <- plot_ly(covid_sr, x = ~  dateRep) 
+fig <- fig %>% add_trace(y = ~cases, name = 'cases', type = 'scatter', mode = 'lines')
+fig <- fig %>% add_trace(y = ~deaths, name = 'deaths', type = 'scatter', mode = 'lines')   
+fig <- fig %>% layout(xaxis = x)
+fig
+```
+
+---
+
+**Number of total confirmed cases**
+
+The experience with COVID-19 shows that infection of the disease can be controlled by implementing the measures of prevention as soon as an outbreak has been detected.
+
+To monitor the effectives of the introduced measures we focus on daily cumulative cases of COVID-19 infection that can be expressed as 
+
+$$F(x) = \sum_{i=1}^{n} x_i$$
+
+Although $F(x)$ can show the volume of epidemic it does not tell us directly about the changes in the acceleration of infections spread. This information can be provided by the derivatives of the $F(x)$. The first derivative $F^{’}(x)$ corresponds to the information of the number of the new cases detected every day and the second derivative $F^{’’}(x)$ provides the information about the acceleration of the epidemic. $F^{’’}(x) \approx 0$ indicates the state of stagnation, while $F^{’’}(x) < 0$ indicate deceleration and of course any $F^{’’}(x) > 0$ acceleration.
+
+The plots below illustrate dynamic changes based on the $F(x)$. 
+
+```{r plot_cumulative_cases, echo=FALSE}
+# -------
+# Number of total confirmed cases
+
+covid_sr %>% 
+  ggplot(aes(x = dateRep, y = total_cases)) +
+  geom_bar(stat="identity", fill = "#00688B") + 
+  labs (title = "Cumultive # of Cases", 
+        caption = "Data from: https://www.ecdc.europa.eu", 
+        x = "Date", y = "number of cases") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, vjust = 2, hjust=0.5),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  theme(legend.position="none") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_x_date(labels = date_format("%m-%d"),
+               breaks = 'day') 
+```
+
+
+```{r, echo=FALSE}
+pl1 <- covid_sr %>% 
+  ggplot(aes(x = dateRep, y = total_cases)) +
+  geom_line() + geom_point(col = "#00688B") +
+  xlab("Date") + ylab("Number of Cases") +
+  labs (title = "Cumulative # of new cases", 
+        caption = "Data from: https://www.ecdc.europa.eu") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, vjust = 2, hjust=0.5),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_x_date(labels = date_format("%m-%d"),
+               breaks = 'day') 
+
+pl1
+```
+
+The following graph presents the cumulative number of covid-19 cases using a logarithmic scale to emphasise the rate of change in a way that a linear scale does not. 
+
+```{r log_scale, echo=FALSE}
+pl_log <- covid_sr %>% 
+  mutate(log_total_cases = log(total_cases)) %>% 
+  ggplot(aes(x = dateRep, y = log_total_cases)) +
+  geom_line() + geom_point(col = "#00688B") +
+  xlab("") + ylab("") +
+  labs (title = "log scale of covid-19", 
+        caption = "Data from: https://www.ecdc.europa.eu") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, vjust = 2, hjust=0.5),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  #theme(axis.text.x = element_text(angle = 90)) +
+  scale_x_date(labels = date_format("%m-%d"),
+               breaks = 'week') 
+
+pl_log
+```
+
+```{r two_plots, echo=FALSE}
+pl1 <- pl1 + scale_x_date(labels = date_format("%m-%d"),
+                          breaks = 'week') +
+  theme(axis.text.x = element_text(angle = 0)) +
+  labs (title = "Cumulative # of new cases", 
+        caption = "")
+
+plot_grid(pl1, pl_log)
+```
+
+The following figure enables us to observe the change to the acceleration in relaion to the governmental measurments. 
+
+```{r 2nd_derivative, echo=FALSE, message = FALSE, warning = FALSE}
+covid_sr %>% 
+  filter(!is.na(second_der)) %>% 
+  ggplot(aes(x = dateRep, y = second_der)) +
+  geom_line() + geom_point(col = "#00688B") +
+  xlab("") + ylab("") +
+  labs (title = "2nd derivative of F(x)", 
+        caption = "Data from: https://www.ecdc.europa.eu") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, vjust = 2, hjust=0.5),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  geom_vline(xintercept = as.numeric(as.Date(c("2020-03-16", "2020-03-22", "2020-03-28", "2020-04-04", "2020-04-10", "2020-04-17"))), linetype=4, colour="red", alpha = 0.5) +
+  annotate(geom="text", x=as.Date("2020-03-16"), y = 150, 
+           label="state of\nemergency", col = "dodgerblue4") +
+  annotate(geom="text", x=as.Date("2020-03-22"), y = 70, 
+           label="curfew\n5pm-5am", col = "dodgerblue4") +
+  annotate(geom="text", x=as.Date("2020-03-28"), y = -140, 
+           label="weekend curfew\n3pm-5am", col = "dodgerblue4") +
+  annotate(geom="text", x=as.Date("2020-04-04"), y = 220, 
+           label="weekend curfew\n1pm Sat-5am Mon ", col = "dodgerblue4") +
+  annotate(geom="text", x=as.Date("2020-04-10"), y = -90, 
+           label="Easter curfew\n5pm Fri-5am Mon ", col = "dodgerblue4") +
+  annotate(geom="text", x=as.Date("2020-04-17"), y = 200, 
+           label="Easter curfew\n5pm Fri-5am Tue ", col = "dodgerblue4")
+```
+
+We are interested to see the difference of pandemic in the ex YU region.
+
+```{r region_F(x), echo=FALSE}
+covid_yu %>% 
+  filter(country_code %in% c("BIH", "HRV", "MNE", "MKD", "SRB", "SVN")) %>%
+  filter(dateRep > (max(dateRep) - 21)) %>% 
+  ggplot(aes(x = dateRep, y = total_cases, colour = country_code)) +
+  geom_line() + 
+  xlab("") + ylab("") +
+  labs (title = "F(x) in the last three weeks", 
+        caption = "Data from: https://www.ecdc.europa.eu") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, vjust = 2, hjust=0.5),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  scale_x_date(labels = date_format("%m-%d"),
+               breaks = 'day') +
+  scale_colour_brewer(palette = "Set1") +
+  theme_classic() +
+  theme(legend.position = "bottom") +
+  theme(axis.text.x = element_text(angle = 90)) 
+```
+
+On the log scale everything becomes linear and it makes a comparison of $F(x)$ between the countries easier to observe. 
+
+```{r logF(x)_exYU, echo=FALSE}
+covid_yu %>% 
+  filter(country_code %in% c("BIH", "HRV", "MNE", "MKD", "SRB", "SVN")) %>%
+  filter(dateRep > (max(dateRep) - 21)) %>% 
+  mutate(log_total_cases = log(total_cases)) %>% 
+  ggplot(aes(x = dateRep, y = log_total_cases, colour = country_code)) +
+  geom_line() + 
+  xlab("") + ylab("") +
+  labs (title = "logF(x) in the last three weeks", 
+        caption = "Data from: https://www.ecdc.europa.eu") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, vjust = 2, hjust=0.5),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  scale_x_date(labels = date_format("%m-%d"),
+               breaks = 'day') +
+  scale_colour_brewer(palette = "Set1") +
+  theme_classic() +
+  theme(legend.position = "bottom") +
+  theme(axis.text.x = element_text(angle = 90)) 
+```
+
+---
+
+**Growth Rate**
+
+The number of registered cases at the beginning of the monitoring for covid-19 in Serbia was very small, starting from 1 on 06-March-202 and increasing by a few in the first week, reflecting in the high growth rate for those days. For example, from the first case reported on 6th March to the fourth on 9th March there is a difference of three, which gives 300% growth rate. For that reason the following graph includes growth rate figures starting from 15-March. 
+
+```{r grRate_plot_ecdc, echo=FALSE}
+# Plot growth rate of cases  
+lg <- dim(covid_sr)[1]
+
+#covid_sr[7:lg,]  %>% 
+covid_sr[7:lg,] %>% 
+  ggplot(aes(x = dateRep, y = Rate_pc_cases)) + 
+  geom_line() + geom_point(col = "#00688B") +
+  xlab("Date") + ylab("Percentage Growth") +
+  labs (title = "Percentage Growth Rate", 
+        caption = "Data from: https://www.ecdc.europa.eu") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_x_date(labels = date_format("%m-%d"),
+               breaks = 'day') 
+```
+
+
+---
+
+The data used for the following part of the analysis is sourced from the [Portal of Open Data of Republic of Serbia](https://data.gov.rs/sr/datasets/covid-19-zarazheni/?fbclid=IwAR1nX00zb9p_ceNfBoxQaObyjI8XsMWEIKj2NYGhnTf2xAh6oMsvvmnbSoQ). **This data has not been updated since March 29th.**
+
+```{r RSGov_data, echo=FALSE, message = FALSE, warning = FALSE, results = FALSE}
+url1 <- "https://data.gov.rs/s/resources/covid-19-zarazheni/20200330-200441/covid-19.xlsx"
+# https://data.gov.rs/sr/datasets/r/1977833a-36f2-445e-916a-ef51b217d3a0
+
+GET(url1, 
+    write_disk(tf <- tempfile(fileext = ".xlsx")))
+
+covidserbia <- read_excel(tf)
+
+#importing longitude and latitude
+towns <- read.csv("SRlonglat.csv")
+
+Date <- as.Date(with(covidserbia, paste(Godina, Mesec, Dan, sep="-")), "%Y-%m-%d")
+
+mydata <- covidserbia %>% 
+  rename(Year = Godina) %>% 
+  rename(Month = Mesec) %>% 
+  rename(Day = Dan) %>% 
+  rename(Town = NazivTeritorije) %>% 
+  rename(Cases = Vrednost) %>% 
+  mutate(Date = Date) %>% 
+  mutate(Town = fct_recode(Town, 
+                           "ČAČAK" = "ČAČAK-GRAD",
+                           "JAGODINA" = "JAGODINA-GRAD",
+                           "KIKINDA" = "KIKINDA-GRAD",
+                           "KRAGUJEVAC" = "KRAGUJEVAC-GRAD", 
+                           "KRUŠEVAC" = "KRUŠEVAC-GRAD", 
+                           "LESKOVAC" = "LESKOVAC-GRAD",
+                           "LOZNICA" = "LOZNICA-GRAD", 
+                           "NOVI PAZAR" = "NOVI PAZAR-GRAD",
+                           "PANČEVO" = "PANČEVO-GRAD", 
+                           "PRIŠTINA" = "PRIŠTINA-GRAD",
+                           "PIROT" = "PIROT-GRAD",
+                           "ŠABAC" = "ŠABAC-GRAD", 
+                           "SMEDEREVO" = "SMEDEREVO-GRAD",
+                           "SOMBOR" = "SOMBOR-GRAD",
+                           "SREMSKA MITROVICA" = "SREMSKA MITROVICA-GRAD",
+                           "SUBOTICA" = "SUBOTICA-GRAD",
+                           "VALJEVO" = "VALJEVO-GRAD",
+                           "VRŠAC" = "VRŠAC-GRAD",
+                           "ZAJEČAR" = "ZAJEČAR-GRAD",
+                           "ZRENJANIN" = "ZRENJANIN-GRAD", 
+                           "KRALJEVO" = "KRALJEVO-GRAD"))
+
+mydata <- mydata %>% 
+  filter(Town != "Republika Srbija")
+
+mydata <- left_join(mydata, towns, by = "Town")
+
+
+mydata <- mydata[, -c(1, 3, 8)]
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+k <- 174 # there are 174 towns
+# how many days?
+rown <- dim(mydata)[1] + (2*k)  
+# x:sequence of the blocks
+x <- seq(1, rown, k)
+# l:how many blocks
+l <- rown/k - 2
+
+# ~~~ inew cases ~~~
+mydcase <- mydata[(x[1]:(k*1)),] # 1st block
+# block for 07-March-2020
+mydcase <- rbind(mydcase, mydata[(x[1]:(k*1)),])
+mydcase$Day[(x[2]:(x[3]-1))] <- rep(7, k)
+mydcase$Date[(x[2]:(x[3]-1))] <- rep(as.Date("2020-3-7", "%Y-%m-%d"), k)
+# block for 08-March-2020
+mydcase <- rbind(mydcase, mydata[(x[1]:(k*1)),])
+mydcase$Day[(x[3]:(x[4]-1))] <- rep(8, k)
+mydcase$Date[(x[3]:(x[4]-1))] <- rep(as.Date("2020-3-8", "%Y-%m-%d"), k)
+# blocks from 09-March-2020
+for (i in seq(3, l-1, by = 2)) {
+  mydcase <- rbind(mydcase, mydata[x[i]:(k*i), ]) 
+}
+#dim(mydcase)
+
+# ~~~ cumulative cases ~~~
+mydtotal <- mydata[(x[2]:(k*2)),] # 1st block
+
+# block for 07-March-2020
+mydtotal <- rbind(mydtotal, mydata[(x[2]:(k*2)),])
+mydtotal$Day[(x[2]:(x[3]-1))] <- rep(7, k)
+mydtotal$Date[(x[2]:(x[3]-1))] <- rep(as.Date("2020-3-7", "%Y-%m-%d"), k)
+# block for 08-March-2020
+mydtotal <- rbind(mydtotal, mydata[(x[2]:(k*2)),])
+mydtotal$Day[(x[3]:(x[4]-1))] <- rep(8, k)
+mydtotal$Date[(x[3]:(x[4]-1))] <- rep(as.Date("2020-3-8", "%Y-%m-%d"), k)
+for (i in seq(4, l, by = 2)) {
+  mydtotal <- rbind(mydtotal, mydata[x[i]:(k*i), ]) 
+}
+#dim(mydtotal)
+```
+
+---
+
+**Mapping the Cases**
+
+```{r plotly_map, echo=FALSE}
+tl <- dim(mydtotal)[1]
+last_day <- mydtotal[(tl-k+1):tl,]
+
+last_day_map <- last_day %>% 
+  filter(Cases != 0) %>% 
+  group_by(Town)
+
+mdata <- last_day_map %>%
+  arrange(Cases) %>%
+  mutate(name = factor(Town, unique(Town))) %>%
+  mutate( mytext = paste(
+    "Town: ", name, "\n", 
+    "Cases: ", Cases, sep = "")
+  )
+
+SR <- map_data("world") %>% filter(region=="Serbia")
+KO <- map_data("world") %>% filter(region=="Kosovo")
+title_text <- paste("last available data on ", as.Date(mdata$Date[1],"%d/%m/%Y"), sep = "") 
+
+p <-
+  ggplot() +
+  geom_polygon(data = SR, aes(x=long, y = lat, group = group), fill="antiquewhite4", alpha=0.5) +
+  geom_polygon(data = KO, aes(x=long, y = lat, group = group), fill="antiquewhite3", alpha=0.5) +
+  geom_point(data = mdata, aes(x=lng, y=lat, size=Cases, color=Cases, text=mytext, alpha = 0.3)) + 
+  scale_size_continuous(range=c(1,15)) +
+  labs(title = title_text,
+       caption = "data from: https://data.gov.rs") +
+  #scale_color_viridis_d(option="inferno") +
+  scale_alpha_continuous(trans="log") +
+  theme_void() +
+  coord_map() +
+  theme(legend.position = "right")
+
+p <- ggplotly(p, tooltip="text")
+p
+```
+
+```{r table_map, echo=FALSE}
+ts <- last_day_map %>% 
+  select(Town, Cases) %>% 
+  arrange(desc(Cases)) %>% 
+  DT::datatable()
+
+widgetframe::frameWidget(ts)
+```
+
+---
+
+**Total Number of Cases by Day**
+
+```{r toatal_cases, echo = FALSE}
+mydt <- mydtotal %>% 
+  drop_na() %>% 
+  group_by(Date) %>% 
+  arrange(Date) %>% 
+  summarise(total = sum(Cases))
+
+# Bar Chart: Total number of cases for each day
+mydt %>% 
+  ggplot(aes(x = Date, y = total)) +
+  geom_bar(stat="identity", fill = "#00688B") + 
+  theme(plot.title = element_text(size = 14, vjust = 2, hjust=0.5)) +
+  labs(title = "Cumulative Number of Cases", 
+       caption = "Data from: https://data.gov.rs", 
+       x = "Date", y = "Number of Cases") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, vjust = 2, hjust=0.5),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()) +
+  theme(legend.position="none") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_x_date(labels = date_format("%m-%d"),
+               breaks = 'day')
+
+
+
+
+# Data Table: Total number of cases for each day 
+ts <- mydt %>%
+  DT::datatable()
+
+widgetframe::frameWidget(ts)
+```
+
+---
+
+**Growth Rate of New Cases Day by Day**
+
+```{r, echo=FALSE}  
+# Tabular vieww of the daily growth rate of cases
+growth_rate <- mydt %>%
+  arrange(Date) %>%
+  mutate(Diff_growth = total - lag(total), # Difference in route between years
+         Rate_percent = round(Diff_growth/lag(total) * 100, 2))
+
+ts <- growth_rate %>% DT::datatable()
+
+widgetframe::frameWidget(ts)
+```
+
+
+**New Daily Cases**
+
+*Animation*
+
+```{r, echo = FALSE, fig.high = 20, fig.width = 10}
+data_plot <- mydcase %>% 
+  filter(Cases != 0) %>% 
+  group_by(Town)
+
+maxT <- max(data_plot$Cases)
+
+ggplot(data_plot, aes(x = Town, y = Cases, fill = Town)) +
+  geom_hline(yintercept = 0.05, colour = "#D3D3D3", linetype = "dashed") +
+  geom_bar(position = "dodge", stat = "identity", color = "black") +
+  geom_text(aes(label = Cases, y = Cases + 2),
+            position = position_dodge(width = 0.2), 
+            size = 4, color = "black") +
+  coord_flip() +
+  #theme(axis.text.x = element_text(angle = 90)) +  
+  #theme(legend.position = "bottom", 
+  #        axis.text.x = element_blank(),
+  #        axis.ticks.x = element_blank()) + 
+  labs(title = "COVID-19 SR",
+       subtitle = "Number of new cases by Date {closest_state}",
+       caption = "data from: https://data.gov.rs",
+       x = "towns", y = "no new cases") +
+  theme_bw() +
+  scale_colour_brewer(palette = "Spectral") +
+  #scale_fill_distiller()
+  #  theme_light(base_size = 12) +
+  #  scale_fill_brewer(palette="Dark2") + 
+  guides(fill = FALSE) +
+  scale_y_continuous(labels = waiver(), limits = c(0, maxT+3)) +
+  transition_states(Date, 1, 3, wrap = FALSE) +
+  ease_aes('quadratic-in-out')
+
+#anim_save("Bars_H.gif")
+```
+
+*Table*
+
+The following table shows the number of new cases for each day in each town. You can use the text box in the top right corner to fillter the table by town.
+
+```{r, echo = FALSE}
+ts <- mydcase %>% 
+  select(Town, Date, Cases) %>% 
+  arrange(Town) %>% 
+  DT::datatable()
+
+widgetframe::frameWidget(ts)
+```
+
+---
+
+**Total Number of Cases**
+
+*Animation*
+
+
+```{r, echo = FALSE, fig.high = 20, fig.widt = 10}
+data_plot <- mydtotal %>% 
+  filter(Cases != 0) %>% 
+  group_by(Town)
+
+maxT <- max(data_plot$Cases)
+
+ggplot(data_plot, aes(x = Town, y = Cases, fill = Town)) +
+  geom_hline(yintercept = 0.05, colour = "#D3D3D3", linetype = "dashed") +
+  geom_bar(position = "dodge", stat = "identity", color = "black") +
+  geom_text(aes(label = Cases, y = Cases + 3),
+            position = position_dodge(width = 0.2), 
+            size = 4, color = "black") +
+  coord_flip() +
+  #theme(axis.text.x = element_text(angle = 90)) +  
+  #theme(legend.position = "bottom", 
+  #        axis.text.x = element_blank(),
+  #        axis.ticks.x = element_blank()) + 
+  labs(title = "COVID-19 SR",
+       subtitle = "Number of new cases by Date {closest_state}",
+       caption = "data from: https://data.gov.rs",
+       x = "towns", y = "no new cases") +
+  theme_bw() +
+  scale_colour_brewer(palette = "Spectral") +
+  #scale_fill_distiller()
+  #  theme_light(base_size = 12) +
+  #  scale_fill_brewer(palette="Dark2") + 
+  guides(fill = FALSE) +
+  scale_y_continuous(labels = waiver(), limits = c(0, maxT+3)) +
+  transition_states(Date, 1, 3, wrap = FALSE) +
+  ease_aes('quadratic-in-out')
+
+#anim_save("Bars_H.gif")
+```
+
+*Table*
+
+Table below shows cumulative number of cases for each day and each town. Use the top right handside textbox to filter the table by town.
+```{r, echo = FALSE}
+ts <- mydtotal %>% 
+  select(Town, Date, Cases) %>% 
+  arrange(Town) %>% 
+  DT::datatable()
+
+widgetframe::frameWidget(ts)
+```
+
+---
+
+**[`r fa("github", fill = "steelblue")`](https://github.com/TanjaKec/covid19sr) [`r fa("twitter", fill = "steelblue")`](https://twitter.com/SisterAnalyst)**
+
+**<http://covid19sr.rbind.io> website is built with ♥️ in [`r fa("r-project", fill = "steelblue")`](https://www.r-project.org).**
+
+-----------------------------
+© 2020 Tatjana Kecojevic
