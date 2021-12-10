@@ -172,5 +172,17 @@ Practise by doing the following set of exercises:
 
 [Thematic Mapping with tmap](https://map-rfun.library.duke.edu/031_thematic_mapping.html)
 
+
+
+**Examples:**
+
+Some RMarkdown reports that you will be able to do now with the knowledge from this course:
+
+- https://tanjakec.github.io/ASDA/index.html
+
+    * you can download necessary files from the following GitHub repo: <https://github.com/TanjaKec/ASDA>
+
+- https://ohsa.netlify.app
+
 -----------------------------
 © 2021 Tatjana Kecojevic

@@ -511,6 +511,8 @@ Practise by doing the following set of exercises:
 
 **Useful Links**
 
+[Pivoting: `part` of the `tidyverse`](https://tidyr.tidyverse.org/dev/articles/pivot.html)
+
 [Data Wrangling cheat sheet](https://www.rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf)
 
 [Data Transformation with dplyr cheat sheet](https://4.files.edl.io/b9e2/07/12/19/142839-a23788fb-1d3a-4665-9dc4-33bfd442c296.pdf)
